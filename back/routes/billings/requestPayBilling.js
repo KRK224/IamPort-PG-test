@@ -6,6 +6,7 @@ const { CustomerInfo, OrderInfo } = require("../../models");
 // 테스트 목적: 일반 결제 양식과 다른데 잘 되는지.
 const requestPayBilling = async (req, res, next) => {
   try {
+    console.log('*********** 빌링키 결제 시작');
     const { userName, userEmail, merchant_uid, amount } = req.body;
 
     const customer = await CustomerInfo.findOne({
@@ -55,9 +56,10 @@ const requestPayBilling = async (req, res, next) => {
       headers: { Authorization: access_token }, // 인증 토큰을 Authorization header에 추가
       data: {
         customer_uid,
-        merchant_uid, // 새로 생성한 결제(재결제)용 주문 번호
+        merchant_uid,
         amount,
         name: "월간 이용권 정기결제",
+        pg: 'BA001',
       },
     });
 
@@ -74,10 +76,11 @@ const requestPayBilling = async (req, res, next) => {
       if ( response.status === "paid" ) { //카드 정상 승인
         console.log('정상 승인 처리');
         if(amount === response.amount) {
-          console.log('DB에 정보 업데이트');
+          console.log('금액 일치!, DB에 정보 업데이트');
           await OrderInfo.update(
             {
               // DB에 결제 정보 저장
+              impUid: response.imp_uid,
               pgTid: response.pg_tid,
               paidAmount: response.amount,
               errorYN: false,
@@ -88,6 +91,7 @@ const requestPayBilling = async (req, res, next) => {
               },
             }
           );
+          res.send({status: 'success' , message: '정상처리되었습니다'});
         } else {
           console.log('금액 위변조 발생');
           await OrderInfo.update(
@@ -102,7 +106,8 @@ const requestPayBilling = async (req, res, next) => {
                 merchantUid: response.merchant_uid,
               },
             }
-          )
+          );
+          res.send({status: 'failed', message: '정상 금액이 결제 되지않았습니다!'});
         }
       } else { //카드 승인 실패 (예: 고객 카드 한도초과, 거래정지카드, 잔액부족 등)
         //paymentResult.status : failed 로 수신됨
@@ -115,7 +120,6 @@ const requestPayBilling = async (req, res, next) => {
     const error = new Error(err.message);
     next(error);
   }
-  res.send({status: 'success' , message: '정상처리되었습니다'});
 };
 
 module.exports = requestPayBilling;

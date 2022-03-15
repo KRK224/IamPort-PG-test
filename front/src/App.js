@@ -7,6 +7,7 @@ import RequestBilling from './components/RequestBilling';
 import RequestPayBilling from './components/RequestPayBilling';
 import RequestScheduleBilling from './components/RequestScheduleBilling';
 import CancelPay from './components/CancelPay';
+import TransPay from './components/TransPay';
 
 const App = () =>{
   
@@ -14,6 +15,7 @@ const App = () =>{
   <Routes>
     <Route path="/" element={<Home />} />
     <Route path="/payments" element={<RequestPay />} />
+    <Route path='/trans' element={<TransPay />} />
     <Route path="/cancel" element={<CancelPay />} />
     <Route path="/customer" element={<CustomerForm />} />
     <Route path='/card' element={<CardForm />} />

@@ -5,6 +5,7 @@ const Home = () =>{
     <div>
       <h1>홈</h1>
       <div><Link to='/payments'>일반 결제</Link></div>
+      <div><Link to='/trans'>실시간 계좌이체</Link></div>
       <div><Link to='/cancel'>결제 취소</Link></div>
       <div><Link to='/customer'>고객 등록</Link></div>
       <div><Link to='/card'>RestAPI 카드 등록</Link></div>

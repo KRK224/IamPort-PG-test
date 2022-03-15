@@ -1,16 +1,16 @@
 import React, { useState } from "react";
+import { Link } from "react-router-dom";
 import axios from "axios";
 
 // REST API로 빌링키 등록
 const CardForm = () => {
-  
   const [userInfo, setUserInfo] = useState({
-    userName: '',
-    userEmail: '',
+    userName: "",
+    userEmail: "",
   });
 
   const [cardInfo, setCardInfo] = useState({
-    cardNumber: '',
+    cardNumber: "",
     expiry: "",
     birth: "",
     pwd2Digit: "",
@@ -30,20 +30,20 @@ const CardForm = () => {
           userEmail,
         },
       }).then((rsp) => {
-        console.log(rsp.data.status);
-        const {status, customerId} = rsp.data;
-        if (status === "success") {
-          alert(status);
+        const { status, customerId, message } = rsp.data;
+        console.log(status, customerId, message);
+        if (status === "found") {
+          alert(message);
           setCardInfo({
             ...cardInfo,
             customer_uid: customerId,
           });
         } else {
           setUserInfo({
-            userName: '',
-            userEmail: '',
+            userName: "",
+            userEmail: "",
           });
-          alert(rsp.message);
+          alert(message);
         }
       });
     } catch (err) {
@@ -59,13 +59,13 @@ const CardForm = () => {
     });
   };
 
-  const handleCardInputChange = (e) =>{
+  const handleCardInputChange = (e) => {
     const { value, name } = e.target;
     setCardInfo({
       ...cardInfo,
-      [name] : value,
-    })
-  }
+      [name]: value,
+    });
+  };
 
   const handleFormSubmit = (event) => {
     event.preventDefault();
@@ -81,79 +81,84 @@ const CardForm = () => {
         customer_uid,
       },
     }).then((rsp) => {
-        alert(rsp.data.message);
+      alert(rsp.data.message);
     });
   };
 
   return (
     <>
-    <form onSubmit={checkCustomerInfo}>
-      <label>
-        고객 이름
-        <input
-          type="text"
-          name="userName"
-          value={userInfo.userName}
-          onChange={handleUserInputChange}
-        />
-      </label>
-      <br />
-      <label>
-        고객 이메일
-        <input
-          type="text"
-          name="userEmail"
-          value={userInfo.userEmail}
-          onChange={handleUserInputChange}
-        />
-      </label>
-      <br />
-      <input type="submit" value="고객 정보 확인" />
-    </form>
+      <form onSubmit={checkCustomerInfo}>
+        <label>
+          고객 이름
+          <input
+            type="text"
+            name="userName"
+            value={userInfo.userName}
+            onChange={handleUserInputChange}
+          />
+        </label>
+        <br />
+        <label>
+          고객 이메일
+          <input
+            type="text"
+            name="userEmail"
+            value={userInfo.userEmail}
+            onChange={handleUserInputChange}
+          />
+        </label>
+        <br />
+        <input type="submit" value="고객 정보 확인" />
+      </form>
 
-    <form onSubmit={handleFormSubmit}>
-      <label>
-        카드 번호
-        <input
-          type="password"
-          name="cardNumber"
-          value={cardInfo.cardNumber}
-          onChange={handleCardInputChange}
-        />
-      </label>
+      <form onSubmit={handleFormSubmit}>
+        <label>
+          카드 번호
+          <input
+            type="password"
+            name="cardNumber"
+            value={cardInfo.cardNumber}
+            onChange={handleCardInputChange}
+            placeholder='- 없이 입력'
+          />
+        </label>
+        <br />
+        <label>
+          카드 유효기간
+          <input
+            type="text"
+            name="expiry"
+            value={cardInfo.expiry}
+            onChange={handleCardInputChange}
+            placeholder='YYYY-MM'
+          />
+        </label>
+        <br />
+        <label>
+          생년월일
+          <input
+            type="text"
+            name="birth"
+            value={cardInfo.birth}
+            onChange={handleCardInputChange}
+            placeholder='yymmdd'
+          />
+        </label>
+        <br />
+        <label>
+          카드 비밀번호 앞 두자리
+          <input
+            type="password"
+            name="pwd2Digit"
+            value={cardInfo.pwd2Digit}
+            onChange={handleCardInputChange}
+          />
+        </label>
+        <br />
+        <input type="submit" value="결제하기" />
+      </form>
       <br />
-      <label>
-        카드 유효기간
-        <input
-          type="text"
-          name="expiry"
-          value={cardInfo.expiry}
-          onChange={handleCardInputChange}
-        />
-      </label>
-      <br />
-      <label>
-        생년월일
-        <input
-          type="text"
-          name="birth"
-          value={cardInfo.birth}
-          onChange={handleCardInputChange}
-        />
-      </label>
-      <br />
-      <label>
-        카드 비밀번호 앞 두자리
-        <input
-          type="password"
-          name="pwd2Digit"
-          value={cardInfo.pwd2Digit}
-          onChange={handleCardInputChange}
-        />
-      </label>
-      <br />
-      <input type="submit" value="결제하기" />
-    </form>
+      <Link to="/">홈</Link>
     </>
   );
 };

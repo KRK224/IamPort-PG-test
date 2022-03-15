@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Link } from 'react-router-dom';
 import axios from "axios";
 
 const CancelPay = () =>{
@@ -38,6 +39,7 @@ const CancelPay = () =>{
   };
 
   return(
+    <>
     <form onSubmit={handleFormSubmit}>
     <label>
       결제 주문번호
@@ -71,6 +73,9 @@ const CancelPay = () =>{
     <br />
     <input type="submit" value="환불하기" />
     </form>
+    <br />
+    <Link to="/">홈</Link>
+    </>
   )
 }
 

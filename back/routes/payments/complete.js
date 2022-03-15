@@ -1,11 +1,12 @@
 const axios = require("axios");
 const { OrderInfo } = require("../../models");
+const { getToken } = require("../../utils");
 
 // dotenv.config();
 
 const completePayment = async (req, res, next) => {
   try {
-    console.log('******* 클라이언트에서 결제 정보 전달');
+    console.log("******* 클라이언트에서 결제 정보 전달");
     const { imp_uid, merchant_uid, req_amount } = req.body;
 
     // 레코드 존재 유무 확인 및 생성
@@ -17,26 +18,31 @@ const completePayment = async (req, res, next) => {
         merchantUid: merchant_uid,
         amount: req_amount,
       },
-    })
-    
+    });
+
     if (created) {
       console.log("new order: ", existedOrder.dataValues);
     } else {
       console.log("old order: ", existedOrder.dataValues);
     }
-    
 
     // 액세스 토큰(access token) 발급 받기
-    const getToken = await axios({
-      url: "https://api.iamport.kr/users/getToken",
-      method: "post", // POST method
-      headers: { "Content-Type": "application/json" }, // "Content-Type": "application/json"
-      data: {
-        imp_key: process.env.IMP_KEY, // REST API 키
-        imp_secret: process.env.IMP_SECRET, // REST API Secret
-      },
-    });
-    const { access_token } = getToken.data.response; // 인증 토큰
+    // const getToken = await axios({
+    //   url: "https://api.iamport.kr/users/getToken",
+    //   method: "post", // POST method
+    //   headers: { "Content-Type": "application/json" }, // "Content-Type": "application/json"
+    //   data: {
+    //     imp_key: process.env.IMP_KEY, // REST API 키
+    //     imp_secret: process.env.IMP_SECRET, // REST API Secret
+    //   },
+    // });
+
+    // const { access_token } = getToken.data.response; // 인증 토큰
+
+    const token = await getToken(process.env.IMP_KEY, process.env.IMP_SECRET);
+    console.log(token);
+
+    const { access_token } = token.data.response;
 
     // imp_uid로 아임포트 서버에서 결제 정보 조회
     const paymentResult = await axios({
@@ -55,13 +61,15 @@ const completePayment = async (req, res, next) => {
       },
     });
 
-    console.info('************* 클라이언트에서 받아온 정보로 DB 데이터 읽어옴.');
+    console.info(
+      "************* 클라이언트에서 받아온 정보로 DB 데이터 읽어옴."
+    );
     console.log(order);
     console.log(Object.keys(order));
 
     if (!order.paidAmount) {
       // 결제 완료 전
-      console.log('****** 클라이언트에서 받아온 정보로 DB 데이터 결제 완료 전');
+      console.log("****** 클라이언트에서 받아온 정보로 DB 데이터 결제 완료 전");
       const amountToBePaid = order.amount;
       console.log("amountToBePaid: ", amountToBePaid);
 
@@ -111,7 +119,11 @@ const completePayment = async (req, res, next) => {
       }
     } else {
       // 결제 완료된 주문
-      console.info("서버 check: 주문 번호 ", order.merchantUid, "는 완료된 주문입니다.");
+      console.info(
+        "서버 check: 주문 번호 ",
+        order.merchantUid,
+        "는 완료된 주문입니다."
+      );
     }
   } catch (err) {
     const error = new Error(err.message);

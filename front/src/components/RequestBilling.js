@@ -1,4 +1,5 @@
 import React, {useState} from 'react';
+import { Link } from "react-router-dom";
 import Error from './Error';
 import moment from 'moment-timezone';
 import axios from 'axios';
@@ -67,6 +68,8 @@ const RequestPay = () =>{
         상품 주문 수: {count}
       </div>
       <button onClick={requestPay}>일반 결제하기</button>
+      <br />
+      <Link to="/">홈</Link>
     </>
   );
 }

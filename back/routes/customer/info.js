@@ -18,11 +18,10 @@ const info = async (req, res, next) => {
       console.log('customer 이메일: ', customer.userEmail);
       console.log('customerId: ', customer.customerId);
 
-      res.status(200).send({ status: 'success', customerId: customer.customerId});
+      res.status(200).send({ status: 'found', customerId: customer.customerId, message: '등록된 사용자입니다!'});
     } else {
       console.log('customer가 존재하지 않습니다!');
-
-      res.status(400).send({status: 'fail', message: 'customer가 존재하지 않습니다!'});
+      res.status(200).send({status: 'not found', customerId: '', message: '등록 가능한 사용자입니다!'});
     }
   } catch (err) {
     const error = new Error(err.message);
