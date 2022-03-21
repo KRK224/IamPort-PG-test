@@ -16,17 +16,11 @@ const RequestPay = () =>{
     const merchant_uid = moment().tz("Asia/Seoul").format(`YYYYMMDD_HHmmss_${count}`);
     
     IMP.request_pay({ // param
-      pg: "kcp_billing",
+      pg: 'nice',
       pay_method: "card",
       merchant_uid: merchant_uid,
       name: "최초인증결제",
       amount: 0,
-      customer_uid: 'cs-b9815101-8f88-42d1-bdcd-b438f5dfb02f',
-      buyer_email: "gildong@gmail.com",
-      buyer_name: "홍길동",
-      buyer_tel: "010-4242-4242",
-      buyer_addr: "서울특별시 강남구 신사동",
-      buyer_postcode: "01181"
     }, rsp => { // callback
       if (rsp.success) {
         

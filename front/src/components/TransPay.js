@@ -15,16 +15,11 @@ const TransPay = () =>{
     const merchant_uid = moment().tz("Asia/Seoul").format(`YYYYMMDD_HHmmss_${count}`);
     
     IMP.request_pay({ // param
-      pg: "kcp",
+      pg: "nice",
       pay_method: "trans",
       merchant_uid: merchant_uid,
       name: "노르웨이 회전 의자",
       amount: 200,
-      buyer_email: "gildong@gmail.com",
-      buyer_name: "홍길동",
-      buyer_tel: "010-4242-4242",
-      buyer_addr: "서울특별시 강남구 신사동",
-      buyer_postcode: "01181"
     }, rsp => { // callback
       if (rsp.success) {
         
@@ -48,8 +43,6 @@ const TransPay = () =>{
         
         
       } else {
-        console.log(rsp);
-        console.log(Object.keys(rsp));
         alert(rsp.error_msg);
         // 결제 실패 시 로직,
         return <Error merchant_uid={merchant_uid} />;

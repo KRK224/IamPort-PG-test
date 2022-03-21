@@ -1,36 +1,23 @@
-const axios = require("axios");
 const { OrderInfo } = require("../../models");
+const { getToken, getPaymentsInfo } = require('../../api');
 
 const webhookPayment = async (req, res, next) =>{
   try {
 
-    console.log('webhookPayement 받음');
-
-    console.info('***************webhook req.body 확인', req.body);
+    console.log('************** webhookPayement 받음');
     
     const { imp_uid, merchant_uid } = req.body; // req의 body에서 imp_uid, merchant_uid 추출
 
 
     // 액세스 토큰(access token) 발급 받기
-    
-    const getToken = await axios({
-      url: "https://api.iamport.kr/users/getToken",
-      method: "post", // POST method
-      headers: { "Content-Type": "application/json" }, // "Content-Type": "application/json"
-      data: {
-        imp_key: process.env.IMP_KEY, // REST API 키
-        imp_secret: process.env.IMP_SECRET, // REST API Secret
-      },
-    });
-    const { access_token } = getToken.data.response; // 인증 토큰
+
+    const token = await getToken(process.env.IMP_KEY, process.env.IMP_SECRET);
+
+    const { access_token } = token.data.response; // 인증 토큰 발급 완료
     
     // imp_uid로 아임포트 서버에서 결제 정보 조회
 
-    const getPaymentData = await axios({
-      url: `https://api.iamport.kr/payments/${imp_uid}`, // imp_uid 전달
-      method: "get", // GET method
-      headers: { "Authorization": access_token } // 인증 토큰 Authorization header에 추가
-    });
+    const getPaymentData = await getPaymentsInfo(access_token, imp_uid);
 
     // 조회한 결제 정보
     console.info('***** webhook 내에서 imp_uid로 아임포트 서버에서 결제 정보 조회');
@@ -52,13 +39,15 @@ const webhookPayment = async (req, res, next) =>{
         impUid: imp_uid,
         amount: paymentData.amount,
       }
-    })
+    });
     
     if(created) {
       console.log('new order: ', order.dataValues);
     }else {
       console.log('old order: ', order.dataValues);
     };
+
+    // 결제 상태 확인 후 로직 처리 추가
 
     if (!order.paidAmount) {
       // 결제 완료 전
@@ -97,6 +86,7 @@ const webhookPayment = async (req, res, next) =>{
             break;
           case "cancelled":
             // 취소 처리 하기
+            console.log('관리자에서 취소 처리됨!');
         }
       } else {
         await OrderInfo.update(

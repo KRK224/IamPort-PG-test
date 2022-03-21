@@ -1,57 +1,76 @@
-const axios = require("axios");
-const {OrderInfo} = require('axios');
+const { OrderInfo } = require("../../models");
+const { getToken, getPaymentsInfo, schedulePayment } = require("../../api");
+const moment = require('moment-timezone');
+const chalk = require('chalk');
+
+moment.tz.setDefault('Asia/Seoul');
+
+const notice_url = process.env.NOTICE_URL +'/iamport-webhook/schedule';
 
 const webhookSchedule = async (req, res, next) => {
-  try{
+  try {
+    console.log("******** webhookSchedule 받음");
+    // 결제 완료된 건에 대해서만 wehbook 발생
+    // 예약 api에 대한 webhook은 발생하지 않음
 
-    console.log('webhookSchedule 받음');
     const { imp_uid, merchant_uid } = req.body;
 
     // 액세스 토큰(access token) 발급 받기
-    const getToken = await axios({
-      url: "https://api.iamport.kr/users/getToken",
-      method: "post", // POST method
-      headers: { "Content-Type": "application/json" }, // "Content-Type": "application/json"
-      data: {
-        imp_key: process.env.IMP_KEY, // REST API 키
-        imp_secret: process.env.IMP_SECRET, // REST API Secret
-      },
-    });
-    const { access_token } = getToken.data.response; // 인증 토큰
 
-    const getPaymentData = await axios({
-      url: `https://api.iamport.kr/payments/${imp_uid}`, // imp_uid 전달
-      method: "get", // GET method
-      headers: { "Authorization": access_token } // 인증 토큰 Authorization header에 추가
-    });
+    const token = await getToken(process.env.IMP_KEY, process.env.IMP_SECRET);
+    const { access_token } = token.data.response; // 인증 토큰 발급 완료
+
+    const getPaymentData = await getPaymentsInfo(access_token, imp_uid);
+    const paymentData = getPaymentData.data.response;
+
+    const { amount, status, customer_uid: customerId, pg_tid, paid_at  } = paymentData;
     
-    const paymentData = getPaymentData.data.response; // 조회한 결제 정보
 
+    // 조회한 결제 정보
+    console.info(
+      "***** webhook 내에서 imp_uid로 아임포트 서버에서 결제 정보 조회"
+    );
+    console.info(chalk.red("axios 반환값(getPaymentData): "), Object.keys(getPaymentData));
+    console.info(
+      chalk.red("Object.keys(getPaymentData.data): "),
+      Object.keys(getPaymentData.data)
+    );
+    console.info(chalk.red("getPayment.data.response"));
+    console.info(paymentData);
+    
     // DB에서 결제되어야 하는 금액 조회
-    const order = await OrderInfo.findOne({
+    const [existedOrder, created] = await OrderInfo.findOrCreate({
       where: {
-        merchantUid: paymentData.merchant_uid,
+        merchantUid: merchant_uid,
+      },
+      defaults: {
+        merchantUid: merchant_uid,
+        amount,
       },
     });
 
-    if (!order.paidAmount) {
+    if (created) {
+      console.log("webhook new order: ", existedOrder.dataValues);
+    } else {
+      console.log("wehbook old order: ", existedOrder.dataValues);
+    }
+
+    if (!existedOrder.paidAmount) {
       // 결제 완료 전
-      const amountToBePaid = order.amount;
-      console.log("amountToBePaid: ", amountToBePaid);
+      const amountToBePaid = existedOrder.amount;
+      console.log(chalk.green("amountToBePaid: "), amountToBePaid);
 
       // 결제 검증하기
-      const { amount, status } = paymentData;
-
-      console.log("paymentData.amount: ", amount);
-
+      
       if (amount === amountToBePaid) {
         switch (status) {
           case "paid":
             await OrderInfo.update(
               {
                 // DB에 결제 정보 저장
-                pgTid: paymentData.pg_tid,
-                paidAmount: paymentData.amount,
+                pgTid: pg_tid,
+                paidAmount: amount,
+                paidAt: paid_at*1000,
                 errorYN: false,
               },
               {
@@ -72,7 +91,8 @@ const webhookSchedule = async (req, res, next) => {
       } else {
         await OrderInfo.update(
           {
-            paidAmount: paymentData.amount,
+            paidAmount: amount,
+            paidAt: paid_at*1000,
             errorYN: true,
           },
           {
@@ -85,47 +105,66 @@ const webhookSchedule = async (req, res, next) => {
       }
     } else {
       // 결제 완료된 주문
-      console.info("서버 check: 주문 번호 ", order.merchantUid, "는 완료된 주문입니다.");
+      console.info(
+        "서버 check: 주문 번호 ",
+        existedOrder.merchantUid,
+        "는 완료된 주문입니다."
+      );
     }
 
     // 새로운 결제 예약
 
-    const dt = new Date(paymentData.paid_at);
-    console.log('현재 결제 예약시간: ', dt);
+    const dt = moment.unix(paymentData.paid_at); // 현재 결제 시간 저장
+    console.log(dt.format('현제 결제 시간: YYYYMMDD_HHmmss'));
+
+    dt.minute(dt.minute() +1); // 3분 뒤에 재 결제 예약
+    dt.second(0);
+    console.log(dt.format('다음 결제 시간: YYYYMMDD_HHmmss'));
+
+    const merchant_uid_new = dt.format('YYYYMMDD_HHmmss') + '_billing';
+
+    const dtTimestamp = dt.unix();
+
+    /**
+    const dt = new Date(paymentData.paid_at * 1000);
+    console.log("현재 결제 시간 ", dt.toString());
     let dtMin = dt.getMinutes();
 
-    dtMin += 3;
+    dtMin += 2;
     dt.setMinutes(dtMin);
-    console.log('다음 결제 예약시간: ', dt);
+    console.log("다음 결제 예약시간: ", dt.toString());
+
+    const dtTimestamp = Math.floor(dt.getTime() / 1000)
+    console.log("다음 dtTimestamp", dtTimestamp);
+    const merchant_uid_new = merchant_uid.substr(0,17) + '_' + dt;
+    */
+
+
+    const schedulingResult = await schedulePayment(
+      access_token,
+      customerId,
+      merchant_uid_new,
+      dtTimestamp,
+      amount,
+      "월간 정기 결제 예약",
+      notice_url,
+    );
+
+    const { code, response } = schedulingResult.data;
     
-    console.log()
-    const dtTimestamp = dt.getTime();
-    console.log('dtTimestamp');
+    console.log('예약 결제 response', response);
+    console.log('예약 리스트 길이', response.length );
 
-    axios({ 
-      url: `https://api.iamport.kr/subscribe/payments/schedule`,
-      method: "post",
-      headers: { "Authorization": access_token }, // 인증 토큰 Authorization header에 추가
-      data: {
-        customer_uid, // 카드(빌링키)와 1:1로 대응하는 값
-        schedules: [
-          {
-            merchant_uid: merchant_uid + dt, // 주문 번호
-            schedule_at: dtTimestamp, // 결제 시도 시각 in Unix Time Stamp. 예: 다음 달 1일
-            amount,
-            name: "월간 이용권 정기결제",
-            buyer_name: userName,
-            buyer_tel: userTel,
-            buyer_email: userEmail
-          }
-        ]
-      }
-    });
-
-  } catch(err) {
+    if (response[0].schedule_status === "scheduled") {
+      console.log('다음 결제가 ', dt,'에 예약되었습니다.');
+    } else {
+      console.log('다음 예약 결제가 실패하였습니다.');
+    };
+    
+  } catch (err) {
     const error = new Error(err.message);
     next(error);
   }
-}
+};
 
 module.exports = webhookSchedule;

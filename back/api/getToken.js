@@ -1,9 +1,6 @@
 const axios = require('axios');
 
-
 const getToken = (imp_key, imp_secret) => {
-  console.log('imp_key: ', imp_key);
-  console.log('imp_secret: ', imp_secret);
   return axios({
     url: "https://api.iamport.kr/users/getToken",
       method: "post", // POST method

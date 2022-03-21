@@ -7,8 +7,7 @@ const RequestPayBilling = () => {
   const [count, setCount] = useState(0);
   const [schedulePay, setschedulePay] = useState({
     userName: "",
-    userEmail: "",
-    schedule: "",
+    userEmail: ""
   });
 
   const handleInputChange = (e) => {
@@ -19,7 +18,9 @@ const RequestPayBilling = () => {
     });
   };
 
-  const requestPay = () => {
+  const requestPay = (e) => {
+    e.preventDefault();
+
     const merchant_uid = moment()
       .tz("Asia/Seoul")
       .format(`YYYYMMDD_HHmmss_${count}`);
@@ -33,7 +34,7 @@ const RequestPayBilling = () => {
         userEmail: schedulePay.userEmail,
         date: schedulePay.schedule,
         merchant_uid,
-        amount: 5000,
+        amount: 500,
       },
     }).then((rsp) => {
       alert(rsp.data.message);
@@ -61,16 +62,6 @@ const RequestPayBilling = () => {
             type="text"
             name="userEmail"
             value={schedulePay.userEmail}
-            onChange={handleInputChange}
-          />
-        </label>
-        <br />
-        <label>
-          결제일
-          <input
-            type="text"
-            name="schedule"
-            value={schedulePay.schedule}
             onChange={handleInputChange}
           />
         </label>

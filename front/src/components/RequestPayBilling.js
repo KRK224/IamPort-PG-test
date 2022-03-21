@@ -32,7 +32,7 @@ const RequestPayBilling = () => {
         userName: customerInfo.userName,
         userEmail: customerInfo.userEmail,
         merchant_uid,
-        amount: 5000,
+        amount: 1000,
       },
     }).then((rsp) => {
       alert(rsp.data.message);

@@ -1,6 +1,7 @@
 const axios = require("axios");
 const { OrderInfo } = require("../../models");
-const { getToken } = require("../../utils");
+const { getToken, getPaymentsInfo } = require("../../api");
+const chalk = require('chalk');
 
 // dotenv.config();
 
@@ -9,7 +10,7 @@ const completePayment = async (req, res, next) => {
     console.log("******* 클라이언트에서 결제 정보 전달");
     const { imp_uid, merchant_uid, req_amount } = req.body;
 
-    // 레코드 존재 유무 확인 및 생성
+    // 레코드 존재 유무 확인 및 생성 (webhook 고려)
     const [existedOrder, created] = await OrderInfo.findOrCreate({
       where: {
         impUid: imp_uid,
@@ -24,57 +25,38 @@ const completePayment = async (req, res, next) => {
       console.log("new order: ", existedOrder.dataValues);
     } else {
       console.log("old order: ", existedOrder.dataValues);
-    }
-
-    // 액세스 토큰(access token) 발급 받기
-    // const getToken = await axios({
-    //   url: "https://api.iamport.kr/users/getToken",
-    //   method: "post", // POST method
-    //   headers: { "Content-Type": "application/json" }, // "Content-Type": "application/json"
-    //   data: {
-    //     imp_key: process.env.IMP_KEY, // REST API 키
-    //     imp_secret: process.env.IMP_SECRET, // REST API Secret
-    //   },
-    // });
-
-    // const { access_token } = getToken.data.response; // 인증 토큰
+    };
 
     const token = await getToken(process.env.IMP_KEY, process.env.IMP_SECRET);
-    console.log(token);
 
-    const { access_token } = token.data.response;
+    const { access_token } = token.data.response; // access_token 추출
 
     // imp_uid로 아임포트 서버에서 결제 정보 조회
-    const paymentResult = await axios({
-      url: `https://api.iamport.kr/payments/${imp_uid}`, // imp_uid 전달
-      method: "get", // GET method
-      headers: { Authorization: access_token }, // 인증 토큰 Authorization header에 추가
-    });
+    const paymentResult = await getPaymentsInfo(access_token, imp_uid);
+    // console.log(chalk.red('paymentResult 값'), paymentResult);
 
     // 조회한 결제 정보
     const paymentData = paymentResult.data.response;
+    const { amount, status, pg_tid, paid_at } = paymentData;
+
+    // console.log(chalk.red('paymentResult.data.response: '), paymentData);
 
     // DB에서 결제되어야 하는 금액 조회
-    const order = await OrderInfo.findOne({
-      where: {
-        merchantUid: paymentData.merchant_uid,
-      },
-    });
 
     console.info(
       "************* 클라이언트에서 받아온 정보로 DB 데이터 읽어옴."
     );
-    console.log(order);
-    console.log(Object.keys(order));
+    // console.log(order);
+    // console.log(Object.keys(order));
 
-    if (!order.paidAmount) {
+    if (!existedOrder.paidAmount) {
       // 결제 완료 전
       console.log("****** 클라이언트에서 받아온 정보로 DB 데이터 결제 완료 전");
-      const amountToBePaid = order.amount;
+      const amountToBePaid = existedOrder.amount;
       console.log("amountToBePaid: ", amountToBePaid);
 
       // 결제 검증하기
-      const { amount, status } = paymentData;
+      
 
       console.log("paymentData.amount: ", amount);
 
@@ -84,8 +66,9 @@ const completePayment = async (req, res, next) => {
             await OrderInfo.update(
               {
                 // DB에 결제 정보 저장
-                pgTid: paymentData.pg_tid,
-                paidAmount: paymentData.amount,
+                pgTid: pg_tid,
+                paidAmount: amount,
+                paidAt: paid_at*1000,
                 errorYN: false,
               },
               {
@@ -103,10 +86,12 @@ const completePayment = async (req, res, next) => {
             });
             break;
         }
-      } else {
+      } else { // 결제 금액 위변조
         await OrderInfo.update(
           {
-            paidAmount: paymentData.amount,
+            paidAmount: amount,
+            paidAt: paid_at*1000,
+            pgTid: pg_tid,
             errorYN: true,
           },
           {
@@ -121,7 +106,7 @@ const completePayment = async (req, res, next) => {
       // 결제 완료된 주문
       console.info(
         "서버 check: 주문 번호 ",
-        order.merchantUid,
+        existedOrder.merchantUid,
         "는 완료된 주문입니다."
       );
     }
